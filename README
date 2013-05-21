@@ -1,1 +1,17 @@
 usage: bdf2wscons font.bdf > font.h
+
+then add it to src/sys/dev/wsfont/wsfont.c like this:
+
+	#ifdef FONT_<YOURNAME><YOURxSIZE>
+	#define HAVE_FONT 1
+	#include "path/to/include"
+	#endif
+
+	/* Our list of built-in fonts */
+	static struct font *list, builtin_fonts[] = {
+	#ifdef FONT_<YOURNAME><YOURxSIZE>
+		{ NULL, NULL, &Terminus8x16, 0, 1, WSFONT_STATIC | WSFONT_BUILTIN  },
+	#endif
+		...
+
+
