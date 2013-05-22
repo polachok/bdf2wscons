@@ -1,3 +1,4 @@
+install: cabal install
 usage: bdf2wscons font.bdf > font.h
 
 then add it to src/sys/dev/wsfont/wsfont.c like this:
