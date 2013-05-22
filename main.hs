@@ -5,11 +5,13 @@ import Data.Attoparsec.Combinator
 import qualified Data.ByteString.Char8 as BS
 import Control.Applicative
 import Data.Char
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Numeric
 
 toNextLine = skipWhile (/='\n') >> endOfLine
 
-glyph :: Parser (Maybe (BS.ByteString, Int, [Int]))
+glyph :: Parser (Maybe (Int, (BS.ByteString, [Int])))
 glyph = do
         string "STARTCHAR" >> skipSpace
         name <- takeWhile1 (/='\n') 
@@ -19,7 +21,7 @@ glyph = do
         toNextLine
         points <- (some (hexadecimal <* endOfLine))
         string "ENDCHAR" >> toNextLine
-        return $ Just (name, code, points)
+        return $ Just (code, (name, points))
 
 notGlyph = toNextLine *> return Nothing
 
@@ -30,7 +32,7 @@ property = do
     endOfLine
     return (name, value)
 
-parseBdf :: Parser (String, (Int, Int), [(BS.ByteString, Int, [Int])])
+parseBdf :: Parser (String, (Int, Int), [(Int, (BS.ByteString, [Int]))])
 parseBdf = do
     ps <- property `manyTill` (string "ENDPROPERTIES")
     gs <- many (glyph <|> notGlyph)
@@ -39,12 +41,15 @@ parseBdf = do
     let gs' = [x | Just x <- gs]
     return (name, size, gs')
 
-showGlyph (name, code, points) =
+showGlyph :: (Int, (BS.ByteString, [Int])) -> String
+showGlyph (code, (name, points)) =
     "\t/* " ++ (BS.unpack name) ++ " */\n\t" ++ 
     foldr (\x s -> "0x" ++ showHex x (",\n\t" ++ s)) "" points
 
 output name (w,h) cs = 
-    let nameSize = name ++ (show w) ++ "x" ++ (show h) in
+    let nameSize = name ++ (show w) ++ "x" ++ (show h)
+        lastCode = (\(code, _) -> code) . last $ cs 
+        fillBlanks cs = map (\x -> (,) x $ Map.findWithDefault (BS.pack (show x), replicate h 0) x $ Map.fromList cs) [(ord ' ')..lastCode] in
     [
      "static u_char "++nameSize++"_data[];\n",
      "struct wsdisplay_font " ++ nameSize ++ "= {"
@@ -53,7 +58,7 @@ output name (w,h) cs =
      "\"" ++ name ++ "\", /* typeface name */",
      "0, /* index */",
      "' ', /* firstchar */",
-     "256 - ' ', /* numchars */",
+     (show lastCode) ++ " - ' ', /* numchars */",
      "WSDISPLAY_FONTENC_ISO, /* encoding */",
      show w ++ ", /* width */",
      show h ++ ", /* height */",
@@ -64,7 +69,7 @@ output name (w,h) cs =
      nameSize ++ "_data /* data */",
      "};"]) ++
     ["static u_char "++nameSize ++ "_data[] = {"] ++
-     (map showGlyph $ filter (\(_, code, _) -> code >= ord ' ' && code < 256) cs) ++ ["};"]
+     (map showGlyph $ fillBlanks $ filter (\(code, _) -> code >= ord ' ') cs) ++ ["};"]
 
 main = do
     [file] <- getArgs
