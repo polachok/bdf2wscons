@@ -5,6 +5,7 @@ import Data.Attoparsec.Combinator
 import qualified Data.ByteString.Char8 as BS
 import Control.Applicative
 import Data.Char
+import Data.Bits
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Numeric
@@ -41,10 +42,13 @@ parseBdf = do
     let gs' = [x | Just x <- gs]
     return (name, size, gs')
 
+drawChar :: Int -> String
+drawChar x = map (\b -> if b then '#' else '.') $ map (testBit x) [8, 7..0]
+
 showGlyph :: (Int, (BS.ByteString, [Int])) -> String
 showGlyph (code, (name, points)) =
     "\t/* " ++ (BS.unpack name) ++ " */\n\t" ++ 
-    foldr (\x s -> "0x" ++ showHex x (",\n\t" ++ s)) "" points
+    foldr (\x s -> "0x" ++ showHex x (",\t/* " ++ drawChar x ++ " */\n\t" ++ s)) "" points
 
 output name (w,h) cs = 
     let nameSize = name ++ (show w) ++ "x" ++ (show h)
