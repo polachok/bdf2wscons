@@ -16,3 +16,6 @@ then add it to src/sys/dev/wsfont/wsfont.c like this:
 		...
 
 
+KNOWN ISSUES
+------------
+Fonts with a lof of characters wont work on recent (2015) OpenBSD. Limit them to 256 characters.
